@@ -1,7 +1,7 @@
 {
   "name": "openapi-bruno",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Build bruno API directories based on your OpenAPI schemas.",
   "author": {
     "name": "Martin Acosta",
