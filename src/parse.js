@@ -1,5 +1,7 @@
 /** @typedef {import('openapi-types').OpenAPIV3_1.Document} OpenAPIDocument */
 /** @typedef {import('openapi-types').OpenAPIV3_1.OperationObject} OperationObject */
+/** @typedef {import('openapi-types').OpenAPIV3_1.ParameterObject} ParameterObject */
+/** @typedef {import('openapi-types').OpenAPIV3_1.ReferenceObject} ReferenceObject */
 
 /**
  * @typedef {{
@@ -166,8 +168,9 @@ function transformOpenapiRequestItem(request, handlers) {
         each(bodySchema.properties || {}, (prop, name) => {
           brunoRequestItem.request.body.formUrlEncoded.push({
             uid: uuid(),
+            type: prop.format === 'binary' ? 'file' : 'text',
             name,
-            value: '',
+            value: prop.format === 'binary' ? [] : '',
             description: prop.description || '',
             enabled: true,
           })
@@ -179,8 +182,9 @@ function transformOpenapiRequestItem(request, handlers) {
         each(bodySchema.properties || {}, (prop, name) => {
           brunoRequestItem.request.body.multipartForm.push({
             uid: uuid(),
+            type: prop.format === 'binary' ? 'file' : 'text',
             name,
-            value: '',
+            value: prop.format === 'binary' ? [] : '',
             description: prop.description || '',
             enabled: true,
           })
@@ -279,22 +283,41 @@ function parseOpenApiCollection(collectionData, handlers) {
     const allRequests = Object.entries(collectionData.paths)
       .map(([path, methods]) => {
         return Object.entries(methods)
-          .filter(([method]) => {
+          .filter(([method, operationObject]) => {
             return ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'].includes(
               method.toLowerCase()
             )
           })
           .map(([method, operationObject]) => {
+            if (typeof operationObject !== 'object') {
+              return null
+            }
+
+            const parameters = []
+            if ('parameters' in methods) {
+              parameters.push(...methods.parameters)
+            }
+
+            if ('parameters' in operationObject) {
+              parameters.push(...operationObject.parameters)
+            }
+
             return {
               method,
               path,
-              operationObject,
+              operationObject: {
+                parameters: [
+                  ...new Map(parameters.filter(item => 'name' in item).map(item => [item.name, item])).values(),
+                ],
+                ...operationObject,
+              },
               global: {
                 server: baseUrl,
                 security: securityConfig,
               },
             }
           })
+          .filter(Boolean)
       })
       .reduce((acc, val) => acc.concat(val), []) // flatten
 
